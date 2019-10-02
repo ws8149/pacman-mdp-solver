@@ -73,20 +73,38 @@ def getClosestFoodPosition(curPos,foodPosList):
     
     return closestFoodPos
 
+# get corners that we can actually travel to
+def getTravelableCorners(state):
+    corners = api.corners(state)
+    travelableCorners = []   
+    
 
-class PathfinderAgent(Agent):
+    offsets = [(1,1), (-1,1), (1,-1), (-1,-1)]
+    for i in range(len(corners)):
+        travelableCorners.append(tuple(map(add, corners[i], offsets[i])))
+    
+    return travelableCorners
 
-    # Create a variable to hold the last position
+
+
+
+
+class CornerSeekingAgent(Agent):    
+
+    ## Create a variable to hold the last position and visited corners
     def __init__(self):
          self.lastPos = (9,1)
-
+         self.visitedCorners = []         
+    
     def getAction(self, state):
         
         curPos = api.whereAmI(state)                                     
-        legal = api.legalActions(state) 
-
-        
-        
+        legal = api.legalActions(state)   
+        corners = getTravelableCorners(state)  
+        #do not include corners we have visited before
+        corners = list(set(self.visitedCorners) ^ set(corners))
+        print(corners)            
+                
         ## Get nodes near pacman        
         nodesDict = {} # key is position, value is direction
 
@@ -107,45 +125,40 @@ class PathfinderAgent(Agent):
         ## Remove previous position
         nodesDict.pop(self.lastPos, None)
         
-        ## Find path to destination
-        destPos = (18,9)
+        ## Find node with the smallest heuristic (node closest to destination)
+        destPos = (9,1)                
+        if len(corners) != 0:
+            destPos = corners.pop()
         heuristic = 0
-        direction = "Stop"       
-        
-        if len(nodesDict) != 0:
-            
-            # use the first key in dictionary as base heuristic
-            pos = list(nodesDict.keys())[0]
-            heuristic = manhattanDist(pos,destPos)
-            direction = nodesDict[pos]
+        direction = "Stop"               
 
-            # make sure we get the node which has the smallest heuristic
-            for pos in nodesDict:                        
-                if manhattanDist(pos,destPos) < heuristic:
-                    heuristic = manhattanDist(pos,destPos) 
-                    direction = nodesDict[pos]                                    
+        if destPos != curPos:                        
+            if len(nodesDict) != 0:
+                
+                # use the first key in dictionary as base heuristic
+                pos = list(nodesDict.keys())[0]
+                heuristic = manhattanDist(pos,destPos)
+                direction = nodesDict[pos]
 
-                print("node: " + str(pos) + ", heuristic: " + str(manhattanDist(pos,destPos)))       
+                # make sure we get the node which has the smallest heuristic
+                for pos in nodesDict:                        
+                    if manhattanDist(pos,destPos) < heuristic:
+                        heuristic = manhattanDist(pos,destPos) 
+                        direction = nodesDict[pos]                                    
+
+                    # print("node: " + str(pos) + ", heuristic: " + str(manhattanDist(pos,destPos))) 
+        else:
+            self.visitedCorners.append(destPos)
+            direction = "Stop"      
 
         
         # Move in a direction
         self.lastPos = curPos
 
-        print("\t Go " + direction)                
-        
-        if destPos == curPos:
-            direction = "Stop"
+        # print("\t Go " + direction)                                
+                      
+        return api.makeMove(direction, legal)
+
+
 
         
-        
-        ## Stop
-        #return api.makeMove(Directions.STOP, legal)
-        
-        ## GoWest
-        # if Directions.WEST not in legal:
-        #     return api.makeMove("Stop", legal)
-        # else:
-        #     print(api.whereAmI(state))
-        #     return api.makeMove("West", legal)        
-        
-        return api.makeMove(direction, legal)
