@@ -35,43 +35,13 @@ import random
 import game
 import util
 from operator import sub, add
-
-class PartialAgent(Agent):
-
-    # Constructor: this gets run when we first invoke pacman.py
-    def __init__(self):
-        print "Starting up!"
-        name = "Pacman"
-
-    # This is what gets run in between multiple games
-    def final(self, state):
-        print "Looks like I just died!"
-
-    # For now I just move randomly
-    def getAction(self, state):
-        # Get the actions we can try, and remove "STOP" if that is one of them.
-        legal = api.legalActions(state)
-        if Directions.STOP in legal:
-            legal.remove(Directions.STOP)
-        # Random choice between the legal options.
-        return api.makeMove(random.choice(legal), legal)
-
+  
 # # # # #
 #  Helper Functions
 # # # # #
+
 def manhattanDist(t1,t2):
   return abs(t1[0] - t2[0]) + abs(t1[1] - t2[1])
-
-def getClosestFoodPosition(curPos,foodPosList):
-    closestFoodPos = foodPosList[0]
-    temp = manhattanDist(curPos,foodPosList[0])
-
-    for foodPos in foodPosList:                         
-        if manhattanDist(curPos,foodPos) < temp:
-            temp = manhattanDist(curPos,foodPos)
-            closestFoodPos = foodPos
-    
-    return closestFoodPos
 
 # get corners that we can actually travel to
 def getTravelableCorners(state):
@@ -86,79 +56,74 @@ def getTravelableCorners(state):
     return travelableCorners
 
 
+#get corners that have not been visited
+def getUnvisitedCorners(corners,visitedCorners):
+  return [c for c in corners if c not in visitedCorners]
+    
+
+#Creates nodes based on current legal actions and position
+def initializeNodesDict(legal,curPos):
+    nodesDict = {}
+    for a in legal:                        
+        if a == "West":
+            newNode = tuple(map(sub, curPos, (1,0)))                
+            nodesDict[newNode] = "West"
+        elif a == "East":
+            newNode = tuple(map(add, curPos, (1,0)))                
+            nodesDict[newNode] = "East"
+        elif a == "North":
+            newNode = tuple(map(add, curPos, (0,1)))                
+            nodesDict[newNode] = "North"
+        elif a == "South":
+            newNode = tuple(map(sub, curPos, (0,1)))
+            nodesDict[newNode] = "South"
+    return nodesDict
 
 
 
-class CornerSeekingAgent(Agent):    
+class PartialAgent(Agent):    
 
     ## Create a variable to hold the last position and visited corners
     def __init__(self):
-         self.lastPos = (9,1)
-         self.visitedCorners = []         
-    
+         self.lastPos = (9,1)         
+                   
     def getAction(self, state):
         
+        ##Get pacman's surrounding data
         curPos = api.whereAmI(state)                                     
-        legal = api.legalActions(state)   
-        corners = getTravelableCorners(state)  
-        #do not include corners we have visited before
-        corners = list(set(self.visitedCorners) ^ set(corners))
-        print(corners)            
-                
-        ## Get nodes near pacman        
-        nodesDict = {} # key is position, value is direction
-
-        for a in legal:                        
-            if a == "West":
-                newNode = tuple(map(sub, curPos, (1,0)))                
-                nodesDict[newNode] = "West"
-            elif a == "East":
-                newNode = tuple(map(add, curPos, (1,0)))                
-                nodesDict[newNode] = "East"
-            elif a == "North":
-                newNode = tuple(map(add, curPos, (0,1)))                
-                nodesDict[newNode] = "North"
-            elif a == "South":
-                newNode = tuple(map(sub, curPos, (0,1)))
-                nodesDict[newNode] = "South"
+        legal = api.legalActions(state)                  
+        food = api.food(state)                                                                      
         
-        ## Remove previous position
-        nodesDict.pop(self.lastPos, None)
+        # each node is a key-value pair where key is position
+        # and value is the direction pacman needs to move to get to that position         
+        nodesDict = initializeNodesDict(legal,curPos)
         
-        ## Find node with the smallest heuristic (node closest to destination)
-        destPos = (9,1)                
-        if len(corners) != 0:
-            destPos = corners.pop()
-        heuristic = 0
-        direction = "Stop"               
+        ## Remove last position from nodesDict and update the last position  
+        nodesDict.pop(self.lastPos, None)               
+        self.lastPos = curPos  
 
-        if destPos != curPos:                        
-            if len(nodesDict) != 0:
-                
-                # use the first key in dictionary as base heuristic
-                pos = list(nodesDict.keys())[0]
-                heuristic = manhattanDist(pos,destPos)
-                direction = nodesDict[pos]
-
-                # make sure we get the node which has the smallest heuristic
-                for pos in nodesDict:                        
-                    if manhattanDist(pos,destPos) < heuristic:
-                        heuristic = manhattanDist(pos,destPos) 
-                        direction = nodesDict[pos]                                    
-
-                    # print("node: " + str(pos) + ", heuristic: " + str(manhattanDist(pos,destPos))) 
-        else:
-            self.visitedCorners.append(destPos)
-            direction = "Stop"      
-
+        ## Get position of any food thats visible
+        destPos = (0,0)
+        if len(food) != 0:
+            destPos = food.pop()
         
-        # Move in a direction
-        self.lastPos = curPos
+        ## Find the closest node to destination by comparing their manhattan distances
+        if len(nodesDict) != 0:                
+            # use the first key in dictionary as base heuristic
+            pos = list(nodesDict.keys())[0]
+            heuristic = manhattanDist(pos,destPos)
+            direction = nodesDict[pos]
 
-        # print("\t Go " + direction)                                
-                      
+            # get the node with the smallest heuristic (closest to destination)
+            for pos in nodesDict:                        
+                if manhattanDist(pos,destPos) < heuristic:
+                    heuristic = manhattanDist(pos,destPos) 
+                    direction = nodesDict[pos]                                    
+
+                # print("node: " + str(pos) + ", heuristic: " + str(manhattanDist(pos,destPos))) 
+               
+                                            
         return api.makeMove(direction, legal)
 
 
 
-        
