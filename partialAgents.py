@@ -79,6 +79,50 @@ def initializeNodesDict(legal,curPos):
             nodesDict[newNode] = "South"
     return nodesDict
 
+#Creates nodes based on current legal actions, position and ghost position
+def initializeSurvivalMoves(legal,curPos,ghosts):
+    moves = {}
+
+    westIsSafe = True
+    eastIsSafe = True
+    northIsSafe = True
+    southIsSafe = True
+
+    ## determine ghost's direction from current position
+    offset = tuple(map(sub, curPos, ghosts[0]))
+    print("offset: " + str(offset))             
+            
+    if offset[0] > 0:
+        print("ghost to the west")
+        westIsSafe = False
+    elif offset[0] < 0:
+        print("ghost to the east")
+        eastIsSafe = False
+    else:
+        if offset[1] > 0:
+            print("ghost to the south")
+            southIsSafe = False
+        else:
+            print("ghost to the north")
+            northIsSafe = False
+
+    for a in legal:                        
+        if a == "West" and westIsSafe:
+            pos = tuple(map(sub, curPos, (1,0)))                
+            moves[pos] = "West"
+        elif a == "East" and eastIsSafe:
+            pos = tuple(map(add, curPos, (1,0)))                
+            moves[pos] = "East"
+        elif a == "North" and northIsSafe:
+            pos = tuple(map(add, curPos, (0,1)))                
+            moves[pos] = "North"
+        elif a == "South" and southIsSafe:
+            pos = tuple(map(sub, curPos, (0,1)))
+            moves[pos] = "South"
+    return moves
+
+
+
 
 
 class PartialAgent(Agent):    
@@ -86,27 +130,55 @@ class PartialAgent(Agent):
     ## Create a variable to hold the last position and visited corners
     def __init__(self):
          self.lastPos = (9,1)         
+         self.survive = False # If true, pacman will run from ghosts
                    
     def getAction(self, state):
         
         ##Get pacman's surrounding data
         curPos = api.whereAmI(state)                                     
         legal = api.legalActions(state)                  
-        food = api.food(state)                                                                      
+        food = api.food(state)
+        ghosts = api.ghosts(state)                       
+        
+        if len(ghosts) != 0:            
+            self.survive = True
+        else:
+            self.survive = False
         
         # each node is a key-value pair where key is position
         # and value is the direction pacman needs to move to get to that position         
         nodesDict = initializeNodesDict(legal,curPos)
+
+        ## Run from ghosts
+        if self.survive:
+            
+            print("Pacman: " + str(curPos))
+            print("Ghosts: " + str(ghosts))            
+            nodesDict = initializeSurvivalMoves(legal,curPos,ghosts)            
+            try:
+                direction = nodesDict.values()[0]
+            except:
+                direction = Directions.STOP
+            self.lastPos = curPos
+            print("RUN " + direction)             
+            return api.makeMove(direction, legal)
+        
+
         
         ## Remove last position from nodesDict and update the last position  
         nodesDict.pop(self.lastPos, None)               
         self.lastPos = curPos  
 
         ## Get position of any food thats visible
-        destPos = (0,0)
+        destPos = (0,0)               
+        
+        
         if len(food) != 0:
             destPos = food.pop()
         
+        direction = Directions.STOP
+        
+
         ## Find the closest node to destination by comparing their manhattan distances
         if len(nodesDict) != 0:                
             # use the first key in dictionary as base heuristic
@@ -124,6 +196,5 @@ class PartialAgent(Agent):
                
                                             
         return api.makeMove(direction, legal)
-
 
 
