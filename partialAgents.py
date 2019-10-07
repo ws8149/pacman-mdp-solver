@@ -90,21 +90,20 @@ def initializeSurvivalMoves(legal,curPos,ghosts):
 
     ## determine ghost's direction from current position
     offset = tuple(map(sub, curPos, ghosts[0]))
-    print("offset: " + str(offset))             
+    #print("offset: " + str(offset))             
             
     if offset[0] > 0:
-        print("ghost to the west")
+        #print("ghost to the west")
         westIsSafe = False
     elif offset[0] < 0:
-        print("ghost to the east")
-        eastIsSafe = False
-    else:
-        if offset[1] > 0:
-            print("ghost to the south")
-            southIsSafe = False
-        else:
-            print("ghost to the north")
-            northIsSafe = False
+        #print("ghost to the east")
+        eastIsSafe = False    
+    if offset[1] > 0:
+        #print("ghost to the south")
+        southIsSafe = False
+    elif offset[1] < 0:
+        #print("ghost to the north")
+        northIsSafe = False
 
     for a in legal:                        
         if a == "West" and westIsSafe:
@@ -131,15 +130,21 @@ class PartialAgent(Agent):
     def __init__(self):
          self.lastPos = (9,1)         
          self.survive = False # If true, pacman will run from ghosts
+         self.corner = (1,1)
+         self.visitedCorners = []
                    
     def getAction(self, state):
         
         ##Get pacman's surrounding data
         curPos = api.whereAmI(state)                                     
-        legal = api.legalActions(state)                  
+        legal = api.legalActions(state)     
+                             
         food = api.food(state)
-        ghosts = api.ghosts(state)                       
-        
+        capsules = api.capsules(state)       
+        if len(capsules) != 0:
+            food.append(capsules[0])                               
+                
+        ghosts = api.ghosts(state)          
         if len(ghosts) != 0:            
             self.survive = True
         else:
@@ -152,15 +157,15 @@ class PartialAgent(Agent):
         ## Run from ghosts
         if self.survive:
             
-            print("Pacman: " + str(curPos))
-            print("Ghosts: " + str(ghosts))            
+            #print("Pacman: " + str(curPos))
+            #print("Ghosts: " + str(ghosts))            
             nodesDict = initializeSurvivalMoves(legal,curPos,ghosts)            
             try:
                 direction = nodesDict.values()[0]
             except:
                 direction = Directions.STOP
             self.lastPos = curPos
-            print("RUN " + direction)             
+            #print("Run from ghost: " + direction)             
             return api.makeMove(direction, legal)
         
 
@@ -169,12 +174,19 @@ class PartialAgent(Agent):
         nodesDict.pop(self.lastPos, None)               
         self.lastPos = curPos  
 
-        ## Get position of any food thats visible
-        destPos = (0,0)               
+        ## Search for food        
+        destPos = (0,0)                                       
         
-        
+        # Head towards food nearby
         if len(food) != 0:
             destPos = food.pop()
+        # Go to corners and look for food
+        else:                        
+            if (curPos == self.corner):
+                self.corner = getTravelableCorners(state)[1]                
+                #print("corner reached, switching to next corner" + str(self.corner))
+            #print("no food, going to corner: " + str(self.corner))            
+            destPos = self.corner 
         
         direction = Directions.STOP
         
