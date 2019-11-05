@@ -35,6 +35,10 @@ import random
 import game
 import util
 from operator import sub, add
+import sys
+
+reward = float(sys.argv[9])
+discount = float(sys.argv[11])
 
 class Grid:
 
@@ -192,9 +196,7 @@ def getMaxExpectedValue(moves):
     return max(expectedValues.items(), key=lambda k: k[1])
 
 #do value iteration, updating every position in the map
-def valueIteration(myMap):
-    reward = 0
-    discount = 1      
+def valueIteration(myMap):          
     for i in range(myMap.getWidth()):
         for j in range(myMap.getHeight()):
             val = myMap.getValue(i,j)            
@@ -209,25 +211,27 @@ class MDPAgent(Agent):
 
     # Constructor: this gets run when we first invoke pacman.py
     def __init__(self):
-        print "Starting up MDPAgent!"
-        name = "Pacman"
+        # print "Starting up MDPAgent!"
+        name = "Pacman"        
         self.myMap = Grid(0,0)
 
     # Gets run after an MDPAgent object is created and once there is
     # game state to access.
-    def registerInitialState(self, state):
-        print "Running registerInitialState for MDPAgent!"
-        print "I'm at:"
-        print api.whereAmI(state)
+    #def registerInitialState(self, state):
+        # print "Running registerInitialState for MDPAgent!"
+        # print "I'm at:"
+        # print api.whereAmI(state)
+        #print("Reward: " + str(reward))
+        #print("Discount: " + str(discount))
        
     
-    def final(self, state):        
-        print "Looks like the game just ended!"
+    # def final(self, state):        
+    #     print "Looks like the game just ended!"
 
     
     def getAction(self, state):
         
-        print("----------------------------")         
+        #print("----------------------------")         
          
 
         #build moves              
@@ -238,33 +242,24 @@ class MDPAgent(Agent):
         food = api.food(state)
         walls = state.getWalls()
         ghosts = api.ghosts(state)             
-
-        # if (self.myMap.getHeight() == 0):
-        #     print("building map..")
-        #     self.myMap = buildMap(walls,food,ghosts)            
-        # else:    
-        #     print("updating map..")    
-        #     updateMap(self.myMap,food,ghosts)                    
+               
         self.myMap = buildMap(walls,food,ghosts)            
 
         moves = buildMoves(curPos,self.myMap)                       
         
         
-        self.myMap.prettyDisplay()        
-        print "------myMap------"    
+        #self.myMap.prettyDisplay()        
+        #print "------myMap------"    
         #do x value iterations
         for i in range(10):
             valueIteration(self.myMap)
-        self.myMap.prettyDisplay()         
+        #self.myMap.prettyDisplay()         
         
                           
 
         #get best move
         moves = buildMoves(curPos,self.myMap) 
-        direction = getMaxExpectedValue(moves)[0]
-        print("moves:")
-        print(moves)        
-        print("Go: " + direction)                         
+        direction = getMaxExpectedValue(moves)[0]        
                 
         #c = raw_input("Continue? ")        
         return api.makeMove(direction, legal)
