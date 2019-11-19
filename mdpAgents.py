@@ -36,6 +36,14 @@ import game
 import util
 from operator import sub, add
 
+#variable initializations
+foodValue = 5
+ghostValue = -8
+reward = 0.7
+discount = 0.7
+numberOfIterations = 10
+
+#grid used in practicals
 class Grid:
 
 	# Adapted from Lab Solutions 5 (Parsons, 2017)
@@ -87,8 +95,8 @@ class Grid:
 
 def buildMap(walls, food, ghosts):            
     myMap = Grid(walls.width,walls.height)    
-         
-    #mark wall as "#", empty space as "0"
+    
+    #mark wall as "###", empty space as "0"
     for i in range(myMap.getWidth()):
         for j in range(myMap.getHeight()):                        
             if walls[i][j] == True:
@@ -96,44 +104,27 @@ def buildMap(walls, food, ghosts):
             else:
                 myMap.setValue(i,j, 0.0)                
 
-    ##try 
+    
     for i in range(myMap.getWidth()):
         for j in range(myMap.getHeight()):
             val = myMap.getValue(i,j)       
-            if val == -8 or val == 5.0:
+            if val == ghostValue or val == foodValue:
                 myMap.setValue(i,j, 0.0)
 
     #mark food as "5"
     for f in food:        
-        myMap.setValue(f[0],f[1], 5.0)
-        
-    for g in ghosts:       
-        # for some reason the api returns a float ??    
-        myMap.setValue(int(g[0]),int(g[1]), -8.0)
+        myMap.setValue(f[0],f[1], foodValue)
+
+    #mark ghosts as "-8"        
+    for g in ghosts:               
+        myMap.setValue(int(g[0]),int(g[1]), ghostValue)
 
     
     return myMap
 
-def updateMap(myMap,food,ghosts):
-    #remove prev ghost or food location 
-    for i in range(myMap.getWidth()):
-        for j in range(myMap.getHeight()):
-            val = myMap.getValue(i,j)       
-            if val == -8 or val == 5.0:
-                myMap.setValue(i,j, 0.0)
-       
-    #mark food as "5"
-    for f in food:        
-        myMap.setValue(f[0],f[1], 5.0)
 
-    #mark ghost location
-    for g in ghosts:       
-        # for some reason the api returns a float ??    
-        myMap.setValue(int(g[0]),int(g[1]), -8.0)
-
-
-#Get food value from map, returns current position food value if wall or out of bounds is detected
-def getFoodValue(myMap, pos, curPos,):
+#Get utility from position in map, returns current position utility if wall or out of bounds is detected
+def getUtility(myMap, pos, curPos):
     
     #check for out of bounds
     if pos[0] < 0 or pos[0] > myMap.getWidth() - 1 :
@@ -156,27 +147,28 @@ def buildMoves(curPos, myMap):
         
         if a == "West":
             pos = tuple(map(sub, curPos, (1,0)))                            
-            foodValue = getFoodValue(myMap,pos,curPos)
-            moves["West"] = foodValue
+            utility = getUtility(myMap,pos,curPos)
+            moves["West"] = utility
 
         elif a == "East":            
             pos = tuple(map(add, curPos, (1,0))) 
-            foodValue = getFoodValue(myMap,pos,curPos)
-            moves["East"] = foodValue
+            utility = getUtility(myMap,pos,curPos)
+            moves["East"] = utility
 
         elif a == "North":           
             pos = tuple(map(add, curPos, (0,1)))  
-            foodValue = getFoodValue(myMap,pos,curPos)
-            moves["North"] = foodValue
+            utility = getUtility(myMap,pos,curPos)
+            moves["North"] = utility
 
         elif a == "South":                        
             pos = tuple(map(sub, curPos, (0,1)))        
-            foodValue = getFoodValue(myMap,pos,curPos)
-            moves["South"] = foodValue
+            utility = getUtility(myMap,pos,curPos)
+            moves["South"] = utility
     
     return moves      
 
 #gets the maximum expected value in key-value pair form eg: ['North', 7.2]
+#Calculates expected value by summing up the probabilities multiplied by the utility
 def getMaxExpectedValue(moves):
     expectedValues = {}
     possibleMoves = ['West','East','North','South']
@@ -189,17 +181,18 @@ def getMaxExpectedValue(moves):
             expectedValues['North'] = 0.8 * moves['North'] + 0.1 * moves['West'] + 0.1 * moves['East']
         elif m == "South":
             expectedValues['South'] = 0.8 * moves['South'] + 0.1 * moves['West'] + 0.1 * moves['East']
+    # return the highest value from expectedValues
     return max(expectedValues.items(), key=lambda k: k[1])
 
+
 #do value iteration, updating every position in the map
-def valueIteration(myMap):
-    reward = 0
-    discount = 1      
+def valueIteration(myMap):    
     for i in range(myMap.getWidth()):
         for j in range(myMap.getHeight()):
             val = myMap.getValue(i,j)            
-            if val != "###" and val != 5 and val != -8:                
+            if val != "###" and val != foodValue and val != ghostValue:                
                 moves = buildMoves((i,j),myMap)                 
+                #apply bellman equation
                 u = reward + discount * getMaxExpectedValue(moves)[1]
                 myMap.setValue(i,j,u)
                 
@@ -227,44 +220,27 @@ class MDPAgent(Agent):
     
     def getAction(self, state):
         
-        print("----------------------------")         
+        #print("----------------------------")         
          
-
-        #build moves              
         legal = api.legalActions(state)
         curPos = api.whereAmI(state)                                 
 
         #build map 
         food = api.food(state)
         walls = state.getWalls()
-        ghosts = api.ghosts(state)             
-
-        # if (self.myMap.getHeight() == 0):
-        #     print("building map..")
-        #     self.myMap = buildMap(walls,food,ghosts)            
-        # else:    
-        #     print("updating map..")    
-        #     updateMap(self.myMap,food,ghosts)                    
-        self.myMap = buildMap(walls,food,ghosts)            
-
-        moves = buildMoves(curPos,self.myMap)                       
-        
-        
-        self.myMap.prettyDisplay()        
-        print "------myMap------"    
-        #do x value iterations
-        for i in range(10):
+        ghosts = api.ghosts(state)                            
+        self.myMap = buildMap(walls,food,ghosts)                                                
+                
+          
+        #do value iteration on map
+        for i in range(numberOfIterations):
             valueIteration(self.myMap)
-        self.myMap.prettyDisplay()         
         
-                          
+        #self.myMap.prettyDisplay()
 
         #get best move
         moves = buildMoves(curPos,self.myMap) 
-        direction = getMaxExpectedValue(moves)[0]
-        print("moves:")
-        print(moves)        
-        print("Go: " + direction)                         
+        direction = getMaxExpectedValue(moves)[0]                                 
                 
         #c = raw_input("Continue? ")        
         return api.makeMove(direction, legal)
